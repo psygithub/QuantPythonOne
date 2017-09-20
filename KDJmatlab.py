@@ -2,6 +2,8 @@ import datetime
 from matplotlib import finance, mlab
 import numpy as np
 import matplotlib.pyplot as plt 
+from matplotlib.ticker import  MultipleLocator
+from matplotlib.ticker import  FormatStrFormatter
 from  datetime import date
 import pandas as pd
 import os
@@ -87,9 +89,6 @@ class KDJ_method:
         price=[]        
         for i in range(df.index.size): 
             dateStr = df.date[i] 
-            year = int(dateStr[0:4])
-            month = int(dateStr[5:7])
-            day = int(dateStr[8:])
             curdate = datetime.datetime.strptime(dateStr,'%Y-%m-%d')
             dayarr.append(curdate)
                 # hprc=df.high
@@ -185,14 +184,10 @@ class KDJ_method:
         return avLine
 
 
-    def show_KDJLine(self,dates,ks,ds,js):
-        fig=plt.figure(figsize=(12,4),frameon=False) 
+    def show_KDJLine(self,code,dates,ks,ds,js):
+        fig=plt.figure(code,figsize=(18,4),frameon=False) 
         plt.subplots_adjust(right=0.98,left=0.05,top=0.98)
-        #xs = np.linspace(0, 1, 20); ys = np.sin(xs)
-        #axes = fig.add_subplot(1,1,1)
-        #axes.plot(xs, ys)
-        #fig.tight_layout()
-
+        ax=plt.subplot()
         #绘制方格
         plt.rc('axes', grid=True)
         plt.rc('grid', color='0.75', linestyle='-', linewidth=0.5)
@@ -205,8 +200,30 @@ class KDJ_method:
         plt.plot(dates, ds,label='D_line')
         plt.plot(dates, js,label='J_line')
         plt.legend(loc='upper left',)
-        plt.axis([dates[len(dates)-1],dates[0],0,100])
+        #设置 坐标范围（Xa,Xb,Ya,Yb）
+        #Xa:横坐标起始值,Xb:横坐标结束值;Ya:纵坐标起始值,Yb:纵坐标结束值
+        x_st=dates[len(dates)-1]
+        x_ed=dates[0]
+        plt.axis([x_st,x_ed,0,100])
 
+        ##将x主刻度标签设置为76的倍数(也即以 38为主刻度单位其余可类推)
+        # xmajorLocator = MultipleLocator(38);
+        # #设置x轴标签文本的格式
+        # #xmajorFormatter = FormatStrFormatter('%3.1f') 
+        # #将x轴次刻度标签设置为5的倍数
+        # xminorLocator = MultipleLocator(1) 
+        # #设置主刻度标签的位置,标签文本的格式        
+        # ax.xaxis.set_major_locator(xmajorLocator)
+        # ax.xaxis.set_minor_locator(xminorLocator)
+        # #x坐标轴的网格使用主刻度
+        # ax.xaxis.grid(True, which='major') 
+
+        #ax.xaxis.set_major_formatter(xmajorFormatter)
+
+        #my_x_ticks = np.arange(x_st, x_ed, 13)
+        # my_y_ticks = np.arange(-2, 2, 0.3)
+        # plt.xticks(my_x_ticks)
+        # plt.yticks(my_y_ticks)
         plt.show()
 
     def kdjLine(self,curP,lowP,highP,n,m1,m2):
@@ -284,7 +301,7 @@ class KDJ_method:
         hightPs=datalist[0][4]
         lowPs=datalist[0][5]
         kdj=self.kdjLine(curPs,lowPs,hightPs,20,3,3)
-        self.show_KDJLine(dates,kdj[0],kdj[1],kdj[2])
+        self.show_KDJLine(datalist[0][0],dates,kdj[0],kdj[1],kdj[2])
 
 
 class StockData:
@@ -334,7 +351,53 @@ class StockData:
             data=pd.read_excel(fileName,na_values=['NA'])
             return data
         return pd.DataFrame();
+    
 
+    def connectMongoDB(self,cllnName):
+        client=MongoClient('127.0.0.1',27017)
+        db=client.TuShare
+        collection=db[cllnName]
+        # for data in collection.find():  
+        #     print(data )
+        # collection.remove({'name':'123'})
+        # collection.insert_one({'name':'123'})
+        return collection
+
+    def GetStockFromMongo(self,code):
+        collection=self.connectMongoDB(code)
+        stkJson=collection.find();
+
+    def SaveStockToMongoDB(self,datalist):
+        for o in datalist:       
+            self.TuShareBatchInsert(o[0],o[1])
+
+    def TuShareBatchInsert(self,code,stockJson):
+        post=connectMongoDB(code)
+        post.insert_many(stockJson)
+
+    #根据查找出的数据日期，获取截止今天的数据，并存入mongo
+    def PushDataToMongoDB(self,code):
+        collection=self.connectMongoDB(code)
+        stkJson=collection.find().sort('date',pymongo.DESCENDING)
+        first=stkJson.collection.find_one()
+        curDate=datetime.datetime.now()
+        #默认开始日期
+        objDate=datetime.datetime(2017,9,1)
+        if(first!=None):
+            obj=json.loads(first,cls=MyJSONDecoder.dict2obj)
+            dateStr = obj.date
+            year = int(dateStr[0:4])
+            month = int(dateStr[5:7])
+            day = int(dateStr[8:])
+            objDate = datetime.datetime(year,month,day)
+            if(objDate<curDate):
+                day=day+1
+                objDate=datetime.datetime(year,month,day)
+        st=objDate.strftime("%Y-%m-%d")
+        ed=curDate.strftime("%Y-%m-%d")
+        df=self.loadTushare_data(code,st,ed)
+        datalist=KDJ_method.formatJson(KDJ_method,code,df)
+        self.SaveStockToMongoDB(datalist)
 
 class StockClass:
     pass
