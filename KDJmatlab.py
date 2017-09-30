@@ -54,33 +54,70 @@ class KDJ_method:
         plt.show()
 
     def showMatlab(self):
-       x = np.linspace(0, 10, 1000)
-       y = np.sin(x)
-       z = np.cos(x ** 2)
+        x = np.linspace(0, 10, 1000)
+        y = np.sin(x)
+        z = np.cos(x ** 2)
 
-       plt.figure(figsize=(8,4)) 
+        plt.figure(figsize=(8,4)) 
 
-       plt.plot(x,y,label="$sin(x)$",color="red",linewidth=2) 
-       plt.plot(x,z,"b--",label="$cos(x^2)$") 
-       plt.legend(loc='upper left',)
-       plt.xlabel("Time(s)") 
-       plt.ylabel("Volt")
-       plt.title("PyPlot First Example")
-       plt.ylim(-1.2,1.2)
-       plt.legend()
+        plt.plot(x,y,label="$sin(x)$",color="red",linewidth=2) 
+        plt.plot(x,z,"b--",label="$cos(x^2)$") 
+        #plt.plot(x,[0.5,0.5],linestyle='--',color='brown')
+        plt.hlines(0.5,0,1000,colors='brown', linestyles='--')
+        plt.legend(loc='upper left',)
+        plt.xlabel("Time(s)") 
+        plt.ylabel("Volt")
+        plt.title("PyPlot First Example")
+        plt.ylim(-1.2,1.2)
+        plt.legend()
 
-       plt.show() 
+        plt.show() 
     
 
-    def formatMatLab(self,code,df):
+    def formatDataFrame(self,code,df):
         datalist = []         
         dayarr = []
+        open_arr = []
+        close_arr = []
+        high_arr = []
+        low_arr = []
+        p_change_arr = []
+        volume_arr = []        
         price=[]        
-        for i in range(df.index.size): 
-            dateStr = df.date[i] 
-            curdate = datetime.datetime.strptime(dateStr,'%Y-%m-%d')
+        #给dataFrame正序排序
+        for i in range(len(df.index)-1,0,-1): 
+            curdate = datetime.datetime.strptime(df.index[i],'%Y-%m-%d')
             dayarr.append(curdate)
-        data = [code,dayarr,df.open.values,df.close.values,df.high.values,df.low.values,df.p_change.values,df.volume.values]
+            open_arr.append(df.open[i])
+            close_arr.append(df.close[i])
+            high_arr.append(df.high[i])
+            low_arr.append(df.low[i])
+            p_change_arr.append(df.p_change[i])
+            volume_arr.append(df.volume[i])
+        data = [code,dayarr,open_arr,close_arr,high_arr,low_arr,p_change_arr,volume_arr]
+        datalist.append(data)
+        return datalist
+    
+    def formatMongoDB(self,code,mgList):
+        datalist = []    
+        day_arr = []
+        open_arr = []
+        close_arr = []
+        high_arr = []
+        low_arr = []
+        p_change_arr = []
+        volume_arr = []
+        for d in mgList: 
+            #curdate = datetime.datetime.strptime(d['index'],'%Y-%m-%d')
+            curdate=d['index']
+            day_arr.append(curdate)
+            open_arr.append(d['open'])
+            close_arr.append(d['close'])
+            high_arr.append(d['high'])
+            low_arr.append(d['low'])
+            p_change_arr.append(d['p_change'])
+            volume_arr.append(d['volume'])
+        data=[code,day_arr,open_arr,close_arr,high_arr,low_arr,p_change_arr,volume_arr]
         datalist.append(data)
         return datalist
 
@@ -89,25 +126,28 @@ class KDJ_method:
         datalist = []
         jsonList=[]
         for i in df.index:
-            stk=StockClass()
-            stk.date=df.date[i] 
-            stk.open=df.open[i]
-            stk.close=df.close[i]
-            stk.high=df.high[i]     
-            stk.low=df.low[i]
-            stk.p_change=df.p_change[i]
-            stk.price_change=df.price_change[i]
-            stk.volume=df.volume[i]
-            stk.ma5=df.ma5[i]
-            stk.ma10=df.ma10[i]
-            stk.ma20=df.ma20[i]
-            stk.v_ma5=df.v_ma5[i]
-            stk.v_ma10=df.v_ma10[i]
-            stk.v_ma20=df.v_ma20[i]
-            stk.turnover=df.turnover[i]
-            strJson=json.dumps(stk,default=lambda obj: obj.__dict__)
-            obj=json.loads(strJson,cls=MyJSONDecoder)
-            jsonList.append(obj)
+            year = int(i[0:4])
+            month = int(i[5:7])
+            day = int(i[8:])
+            i_date=datetime.datetime(year,month,day)
+            stk={
+                'index':i_date,
+                'open':df.open[i],
+                'close':df.close[i],
+                'high':df.high[i],
+                'low':df.low[i],
+                'p_change':df.p_change[i],
+                'price_change':df.price_change[i],
+                'volume':df.volume[i],
+                'ma5':df.volume[i],
+                'ma10':df.ma10[i],
+                'ma20':df.ma20[i],
+                'v_ma5':df.v_ma5[i],
+                'v_ma10':df.v_ma10[i],
+                'v_ma20':df.v_ma20[i]
+                #'turnover':df.turnover[i] 有些没有这一项
+            }
+            jsonList.append(stk)
         data = [code,jsonList]
         datalist.append(data)
         return datalist
@@ -168,16 +208,16 @@ class KDJ_method:
         plt.xlabel('Date')
         plt.ylabel('p_change')
         #将x坐标日期进行倾斜
-        plt.setp(plt.gca().get_xticklabels(), rotation=20, horizontalalignment='right')
+        plt.setp(plt.gca().get_xticklabels(), rotation=90, horizontalalignment='right')
 
         # #设置 坐标范围（Xa,Xb,Ya,Yb）
         # #Xa:横坐标起始值,Xb:横坐标结束值;Ya:纵坐标起始值,Yb:纵坐标结束值
-        x_st=dates[len(dates)-1]
-        x_ed=dates[0]
-        plt.axis([x_st,x_ed,0,100])
+        # x_st=dates[len(dates)-1]
+        # x_ed=dates[0]
+        # plt.axis([x_st,x_ed,0,100])
 
         #将x主刻度标签设置为76的倍数(也即以 38为主刻度单位其余可类推)
-        xmajorLocator = MultipleLocator(50);
+        xmajorLocator = MultipleLocator(20);
         #设置x轴标签文本的格式
         # xmajorFormatter = FormatStrFormatter('%') 
         #将x轴次刻度标签设置为5的倍数
@@ -186,30 +226,33 @@ class KDJ_method:
         ax.xaxis.set_major_locator(xmajorLocator)
         ax.xaxis.set_minor_locator(xminorLocator)
         #x坐标轴的网格使用主刻度
-        # ax.xaxis.grid(True, which='major') 
+        ax.xaxis.grid(True, which='major') 
         # ax.xaxis.set_major_formatter(xmajorFormatter)
 
-        for tick in ax.xaxis.get_major_ticks():  
-            tick.label1.set_fontsize(8) 
+        # for tick in ax.xaxis.get_major_ticks():  
+        #     tick.label1.set_fontsize(8) 
 
 
         # my_x_ticks = np.arange(x_st, x_ed, 13)
         # my_y_ticks = np.arange(-2, 2, 0.3)
         
         days=[]
+        xs=[]
         datelen=len(dates)
         dateRange=range(datelen)
         for i in dateRange:            
             days.append(dates[i].strftime('%Y%m%d'))
+            xs.append(i)
         
-        ax.set_xticks(dates)
+        ax.set_xticks(xs)
         ax.set_xticklabels(days)
-
-        print(days)
-        print(ks)
-        plt.plot(dates, ks,label='K_line')
-        plt.plot(dates, ds,label='D_line')
-        plt.plot(dates, js,label='J_line')
+        plt.axis([xs[0],xs[datelen-1],0,100])
+        # print(days)
+        # print(ks)
+        plt.plot(xs, ks,label='K_line')
+        plt.plot(xs, ds,label='D_line')
+        plt.plot(xs, js,label='J_line')
+        plt.hlines(80,xs[0],xs[datelen-1],linestyle='--',colors='brown'),
         plt.legend(loc='upper left',)
         plt.show()
 
@@ -227,9 +270,12 @@ class KDJ_method:
         try:
             for i in range(size):
                 if i<n-1:
-                    rsv.append(curP[i])
-                    tmpLowP.append(lowP[i])
-                    tmpHighP.append(highP[i])
+                    # rsv.append(curP[i])
+                    # tmpLowP.append(lowP[i])
+                    # tmpHighP.append(highP[i])
+                    rsv.append(50)
+                    tmpLowP.append(50)
+                    tmpHighP.append(50)
                 else:
                     if len(tmpLowP)>0:
                         tmpLowP.remove(tmpLowP[0])            
@@ -303,8 +349,25 @@ class StockData:
             #重新读硬盘上的数据
             df = self.readFromCsv(fileName)
         return df   
+    def getMongoData(self,code,start,end):
+        fileName=code+"_"+start.replace('-','')+"-"+end.replace('-','')
+        collection=self.connectMongoDB(code)
+        # 日期范围查找
+        # tb=collection.find({"$and":[{"$gte":{"index":stard}},{"$lte":{"index":end}}]})
+        tb=collection.find().sort('index',pymongo.ASCENDING)
+        one=tb.collection.find_one()
+        cont=True;
+        datalist=[]
+        if one!=None:
+            for d in tb:
+                datalist.append(d)
+        return datalist
+                
+
+
 
     def loadTushare_data(self,code,startdate,enddate):
+        #tushare数据最新的在前，即降序排序
         df = ts.get_hist_data(code,startdate,enddate,)
         #df=ts.get_k_data(code,startdate,enddate)
         print (df)
@@ -366,35 +429,39 @@ class StockData:
         post.insert_many(stockJson)
 
     #根据查找出的数据日期，获取截止今天的数据，并存入mongo
-    def PushDataToMongoDB(self,code,objDate=datetime.datetime(2017,1,1)):
+    def PushDataToMongoDB(self,code,defaultStartDate=datetime.datetime(2017,1,1)):
         #当前日期
-        curDate=datetime.datetime.now()
-        if(curDate.hour<15 or (curDate.hour==15 and curDate.minute<31)):
-            return
+        curTime=datetime.datetime.now()        
+        curDate=datetime.date.today()
+        if(curTime.hour<15 or (curTime.hour==15 and curTime.minute<31)):
+            curDate=curDate-datetime.timedelta(1)
         collection=self.connectMongoDB(code)
         stkJson=collection.find().sort('date',pymongo.DESCENDING)
         first=stkJson.collection.find_one()
+        #curDate=datetime.date(2017,5,1)
         #默认开始日期
         if(first!=None):
             #objStr=str(first).replace("'","\"")
             #print(objStr)
             #obj=json.loads(objStr,cls=MyJSONDecoder)
-            dateStr = first['date']
+            dateStr = first['index'].strftime('%Y-%m-%d')
             year = int(dateStr[0:4])
             month = int(dateStr[5:7])
             day = int(dateStr[8:])
-            objDate = datetime.datetime(year,month,day)
-            if(objDate<curDate):
-                day=day+1
-                objDate=datetime.datetime(year,month,day)
-        st=objDate.strftime("%Y-%m-%d")
-        ed=curDate.strftime("%Y-%m-%d")
+            defaultStartDate = datetime.date(year,month,day)
+            if(defaultStartDate<curDate):
+                defaultStartDate=defaultStartDate+datetime.timedelta(1)
+            else :
+                if defaultStartDate==curDate:
+                    return;
+        st=defaultStartDate.strftime("%Y-%m-%d")
+        ed=curDate.strftime("%Y-%m-%d")        
         df=self.loadTushare_data(code,st,ed)
-        csvname=code+curDate.strftime('%Y%m%d%H%M%S')
-        self.writeToCsv(csvname,df)
-        csv=self.readFromCsv(csvname)
-        datalist=KDJ_method.formatJson(KDJ_method,code,csv)
-        if(not datalist.empty()):
+        # csvname=code+curDate.strftime('%Y%m%d%H%M%S')
+        # self.writeToCsv(csvname,df)
+        # csv=self.readFromCsv(csvname)
+        datalist=KDJ_method.formatJson(KDJ_method,code,df)
+        if(len(datalist)>0):
             self.SaveStockToMongoDB(datalist)
         
 
@@ -428,7 +495,7 @@ class StockData:
             stk={}
             try:
                 stk={
-                    "code":str(df.code[i]).rjust(7,'0'),
+                    "code":str(df.code[i]).rjust(6,'0'),
                     "name":df.name[i],
                     "industry":df.industry[i],
                     "area":df.area[i],
